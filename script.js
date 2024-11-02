@@ -41,37 +41,54 @@ async function captureImage() {
     const canvas = document.getElementById('canvas');
     const capturedImage = document.getElementById('captured-image');
 
-    // Configurar canvas con la imagen original
     canvas.width = camera.videoWidth;
     canvas.height = camera.videoHeight;
     const ctx = canvas.getContext('2d');
     
-    // Capturar la imagen en color sin procesar
     ctx.drawImage(camera, 0, 0);
 
-    // Guardar la imagen en color
     capturedImage.src = canvas.toDataURL('image/jpeg', 1.0);
     capturedImage.style.display = 'block';
     camera.style.display = 'none';
 
-    // Detener la cámara
     if (stream) {
         stream.getTracks().forEach(track => track.stop());
     }
 
-    // Restaurar el botón
     const cameraBtn = document.querySelector('.camera-btn');
     cameraBtn.textContent = 'Tomar Foto';
     cameraBtn.onclick = startCamera;
 
-    // Enviar la imagen original a Gemini
     processImage(canvas);
 }
 
 async function processImage(canvas) {
     try {
-        const imageBase64 = canvas.toDataURL('image/jpeg');
-        console.log("Procesando imagen con Gemini AI...");
+        // Redimensionar la imagen antes de enviarla
+        const maxDimension = 1024;
+        let newWidth = canvas.width;
+        let newHeight = canvas.height;
+
+        if (canvas.width > maxDimension || canvas.height > maxDimension) {
+            if (canvas.width > canvas.height) {
+                newWidth = maxDimension;
+                newHeight = (canvas.height * maxDimension) / canvas.width;
+            } else {
+                newHeight = maxDimension;
+                newWidth = (canvas.width * maxDimension) / canvas.height;
+            }
+        }
+
+        // Crear nuevo canvas con dimensiones reducidas
+        const resizedCanvas = document.createElement('canvas');
+        resizedCanvas.width = newWidth;
+        resizedCanvas.height = newHeight;
+        const ctx = resizedCanvas.getContext('2d');
+        ctx.drawImage(canvas, 0, 0, newWidth, newHeight);
+
+        // Convertir a base64 con calidad reducida
+        const imageBase64 = resizedCanvas.toDataURL('image/jpeg', 0.8);
+        console.log("Procesando imagen redimensionada con Gemini AI...");
 
         const prompt = {
             "contents": [{
