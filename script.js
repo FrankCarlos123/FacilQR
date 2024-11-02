@@ -91,31 +91,47 @@ async function processImage(canvas) {
         const ocrResponse = await fetch(ocrUrl);
         const ocrResult = await ocrResponse.json();
         
-        console.log("Resultado OCR:", ocrResult);
+        if (!ocrResult.ParsedResults || ocrResult.ParsedResults.length === 0) {
+            throw new Error('OCR no pudo extraer texto de la imagen');
+        }
 
-        if (ocrResult.ParsedResults && ocrResult.ParsedResults.length > 0) {
-            const text = ocrResult.ParsedResults[0].ParsedText;
-            console.log("Texto detectado:", text);
+        const text = ocrResult.ParsedResults[0].ParsedText;
+        console.log("Texto OCR detectado:", text);
 
-            // Buscar específicamente después de "Códigos de barras:"
-            const match = text.match(/Códigos de barras:\s*([\d\s]+)/);
-            
-            if (match) {
-                // Limpiar y separar los códigos
-                const codigosTexto = match[1].trim();
-                const codigos = codigosTexto.match(/\d{12,14}/g);
-                
-                if (codigos && codigos.length > 0) {
-                    document.getElementById('text').value = codigos[0]; // Tomar el primer código
-                    generateQR();
-                } else {
-                    alert('No se encontraron códigos de barras válidos');
-                }
+        // Enviar texto a Gemini para extraer código de barras
+        const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=AIzaSyCa362tZsWj38073XyGaMTmKC0YKc-W0I8`;
+        
+        const prompt = {
+            "contents": [{
+                "parts": [{
+                    "text": `Del siguiente texto, extrae SOLO el código de barras numérico (números de 12-14 dígitos). Si hay varios códigos, devuelve solo el primero. No incluyas ningún otro texto en tu respuesta, solo los números:\n\n${text}`
+                }]
+            }]
+        };
+
+        console.log("Enviando a Gemini...");
+        const geminiResponse = await fetch(GEMINI_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(prompt)
+        });
+
+        const geminiResult = await geminiResponse.json();
+        console.log("Respuesta de Gemini:", geminiResult);
+
+        if (geminiResult.candidates && geminiResult.candidates[0]) {
+            const detectedCode = geminiResult.candidates[0].content.parts[0].text.trim();
+            // Verificar si es un número de 12-14 dígitos
+            if (/^\d{12,14}$/.test(detectedCode)) {
+                document.getElementById('text').value = detectedCode;
+                generateQR();
             } else {
-                alert('No se encontró el formato esperado de códigos de barras');
+                alert('No se encontró un código de barras válido');
             }
         } else {
-            alert('No se pudo extraer texto de la imagen');
+            alert('No se pudo procesar el texto');
         }
 
     } catch (error) {
