@@ -163,7 +163,7 @@ function generateQR() {
 }
 
 function startCountdown() {
-    let count = 10;
+    let count = 30;
     const countdownElement = document.getElementById('countdown');
     countdownElement.textContent = `Limpieza automática en ${count} segundos`;
 
